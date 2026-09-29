@@ -10,7 +10,29 @@ jobs:
   awsapm:
     runs-on: ubuntu-latest
     steps:
-      - uses: aws-actions/application-observability-for-aws@v1
+      - uses: actions/checkout@v4
+
+      - name: Prepare
+        id: prepare
+        uses: aws-actions/application-observability-for-aws@v1
         with:
           allowed_non_write_users: '*'
           bot_name: '@awsapm'
+
+      - name: Run Claude
+        id: claude
+        if: steps.prepare.outputs.prompt_file != ''
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          prompt_file: ${{ steps.prepare.outputs.prompt_file }}
+          allowed_tools: ${{ steps.prepare.outputs.allowed_tools }}
+          disallowed_tools: ${{ steps.prepare.outputs.disallowed_tools }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Post Results
+        if: steps.claude.outputs.output_file != ''
+        uses: aws-actions/application-observability-for-aws@v1
+        with:
+          output_file: ${{ steps.claude.outputs.output_file }}
+          output_status: ${{ steps.claude.outputs.conclusion }}
+          comment_id: ${{ steps.prepare.outputs.awsapm_comment_id }}
